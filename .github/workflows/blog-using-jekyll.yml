@@ -1,0 +1,66 @@
+name: blog-using-jekyll-action
+run-name: ${{ github.actor }} is deploying blog-using-jekyll-action with GitHub Actions
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+jobs:
+  # Build job
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1-Checkout
+        uses: actions/checkout@v3
+      - name: 2-Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0.0' # Not needed with a .ruby-version file
+      - name: 3-Add specific bundler
+        run: bundle lock --add-platform x86_64-linux
+      - name: 4-Run bundle install
+        run: bundle install
+      - name: 5-Build with Jekyll
+        # Outputs to the './_site' directory by default
+        run: |
+         pwd
+         echo "** Build"
+         echo "** Path: ${{ steps.pages.outputs.base_path }}"
+         bundle exec jekyll build
+         echo "** List source files"
+         ls
+         echo "** Site configuration"
+         cp -r $(pwd)/assets $(pwd)/_site
+         cd $(pwd)/_site
+         ls
+      - name: 6-configure pages
+        uses: actions/configure-pages@v2
+      - name: 7-Upload artifact
+        # Automatically uploads an artifact from the './_site' directory by default
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: "_site${{ steps.pages.outputs.base_path }}"
+
+  # Deployment job
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} 
+    steps:
+      - name: 1-Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1
+      - name: 2-Verify
+        run: |
+         pwd
